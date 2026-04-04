@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zeroclaw.gov/schemas/fasah_bundle.schema.json",
+  "title": "FasahBundle",
+  "description": "Result bundle produced by the fasah browser worker after executing a task.",
+  "type": "object",
+  "required": [
+    "task_id",
+    "started_at",
+    "finished_at",
+    "status",
+    "artifacts",
+    "hashes",
+    "tool_versions"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]{8,64}$"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp when execution began."
+    },
+    "finished_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp when execution completed."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["FOUND", "NOT_FOUND", "AUTH_FAIL", "TRANSIENT_FAIL", "NEEDS_HUMAN"],
+      "description": "Outcome classification."
+    },
+    "error_code": {
+      "type": ["string", "null"],
+      "pattern": "^E_[A-Z_]+$",
+      "description": "Structured error code (E_* enum) for monitoring/alerting. Null on clean FOUND."
+    },
+    "error_detail": {
+      "type": ["string", "null"],
+      "description": "Human-readable error detail. Null on clean FOUND."
+    },
+    "record_url": {
+      "type": ["string", "null"],
+      "format": "uri",
+      "description": "URL of the record page if found, null otherwise."
+    },
+    "current_status": {
+      "type": ["string", "null"],
+      "description": "Extracted status text from the record page, null if not found."
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "path", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Logical artifact name."
+          },
+          "path": {
+            "type": "string",
+            "description": "Absolute path to the artifact file."
+          },
+          "type": {
+            "type": "string",
+            "enum": ["screenshot", "snapshot", "transcript", "html"],
+            "description": "Artifact type classification."
+          }
+        }
+      }
+    },
+    "hashes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      "description": "Map of artifact filename to sha256:<hex> digest."
+    },
+    "manifest_ref": {
+      "type": ["string", "null"],
+      "description": "Filename of the canonical sha256sum.txt manifest (source of truth for hashes)."
+    },
+    "tool_versions": {
+      "type": "object",
+      "required": ["agent_browser", "python", "worker_script"],
+      "additionalProperties": true,
+      "properties": {
+        "agent_browser": { "type": "string" },
+        "python": { "type": "string" },
+        "worker_script": { "type": "string" }
+      }
+    },
+    "policy_digest": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "description": "SHA-256 of the active policy file. Set in prod, null in dev."
+    }
+  }
+}

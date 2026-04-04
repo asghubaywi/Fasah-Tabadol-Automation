@@ -1,0 +1,54 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+
+# Playwright
+/playwright-report/
+/test-results/
+
+# Runtime workspace — never commit live data
+workspace/inbox/
+workspace/outbox/
+workspace/audit/
+workspace/state/
+!workspace/inbox/.gitkeep
+!workspace/outbox/.gitkeep
+!workspace/audit/.gitkeep
+!workspace/state/.gitkeep
+
+# Environment secrets — NEVER commit
+.env
+*.env.local
+
+# Temp files
+/tmp/
+*.tmp
+*.bak
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/

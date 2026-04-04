@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: orchestrator
+    environment:
+      - FASAH_BASE_URL=${FASAH_BASE_URL:-https://fasah.gov.sa}
+      - ZC_ENV=${ZC_ENV:-prod}
+      - AGENT_CONFIG=/app/config/agent_fasah.yaml
+      - FASAH_RULES=/app/config/fasah_rules.yaml
+      - FASAH_ENGINE_BIN=/app/target/release/fasah-engine
+      - RUST_LOG=${RUST_LOG:-info}
+    volumes:
+      - workspace:/app/workspace
+      - ./config:/app/config:ro
+    restart: unless-stopped
+
+  browser-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: browser-worker
+    environment:
+      - ZC_ENV=${ZC_ENV:-prod}
+      - ZC_INBOX=/app/workspace/outbox/browser_tasks
+      - ZC_OUTBOX=/app/workspace/outbox/browser_results
+      - ZC_STATE=/app/workspace/state
+      - AGENT_BROWSER_ALLOWED_DOMAINS=${AGENT_BROWSER_ALLOWED_DOMAINS:-*.fasah.gov.sa,fasah.gov.sa}
+      - AGENT_BROWSER_ENCRYPTION_KEY=${AGENT_BROWSER_ENCRYPTION_KEY}
+      - FASAH_BASE_URL=${FASAH_BASE_URL:-https://fasah.gov.sa}
+    volumes:
+      - workspace:/app/workspace
+    restart: unless-stopped
+    # Playwright needs a display; use virtual framebuffer in prod
+    shm_size: "2gb"
+
+volumes:
+  workspace:
+    driver: local

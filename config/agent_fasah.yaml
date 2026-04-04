@@ -1,0 +1,35 @@
+# ============================================================================
+# Fasah-Tabadol-Automation — Agent Configuration
+# ============================================================================
+#
+# Override with: AGENT_CONFIG=/path/to/custom.yaml
+#
+# All paths are relative to the project root unless absolute.
+# ============================================================================
+
+agent_id: "agent_fasah"
+
+# Inbox: drop Tabadol CSV/JSON exports here
+inbox_dir: "workspace/inbox"
+
+# Outbox: compliance verdicts, tracking commands, browser task envelopes
+outbox_dir: "workspace/outbox"
+
+# Audit: daily JSONL files (one per day per agent)
+audit_dir: "workspace/audit"
+
+# How often to scan the inbox (seconds)
+poll_interval_secs: 15
+
+# ── Optional overrides ─────────────────────────────────────────────────────
+# Compliance rules (default: config/fasah_rules.yaml via FASAH_RULES env)
+# rules_file: "config/fasah_rules.yaml"
+
+# Explicit sub-directory overrides
+# processed_dir: "workspace/inbox/processed"
+# quarantine_dir: "workspace/inbox/quarantine"
+# processed_hashes_file: "workspace/inbox/.processed_hashes"
+
+# ── Portal credentials ─────────────────────────────────────────────────────
+# Loaded from environment, never stored here.
+# See .env.example for all required variables.

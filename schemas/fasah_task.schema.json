@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zeroclaw.gov/schemas/fasah_task.schema.json",
+  "title": "FasahTask",
+  "description": "Task envelope dropped into the fasah inbox for the browser worker to process.",
+  "type": "object",
+  "required": ["task_id", "playbook", "params", "session_name", "outputs"],
+  "additionalProperties": false,
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]{8,64}$",
+      "description": "Unique task identifier (UUID or slug)."
+    },
+    "playbook": {
+      "type": "string",
+      "enum": ["fasah_search_inspect_v1"],
+      "description": "Name of the playbook the worker should execute."
+    },
+    "params": {
+      "type": "object",
+      "required": ["base_url", "query"],
+      "additionalProperties": false,
+      "properties": {
+        "base_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Starting URL for the browser session."
+        },
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "description": "Search query to enter into the search field."
+        }
+      }
+    },
+    "session_name": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+      "description": "Logical session identifier for grouping artifacts."
+    },
+    "outputs": {
+      "type": "object",
+      "required": ["out_dir"],
+      "additionalProperties": false,
+      "properties": {
+        "out_dir": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+          "description": "Relative directory name (not a path) for artifacts. Worker resolves this under $ZC_OUTBOX. Must match [a-zA-Z0-9_-]{1,128}."
+        }
+      }
+    }
+  }
+}

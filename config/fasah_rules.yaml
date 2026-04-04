@@ -1,0 +1,78 @@
+# ============================================================================
+# Fasah Compliance Rules
+# ============================================================================
+#
+# Loaded by fasah-engine check <file.json> --rules config/fasah_rules.yaml
+# or via FASAH_RULES environment variable.
+#
+# These rules implement SFDA/SASO/Saudi Customs compliance requirements.
+# Edit as regulations change — no rebuild required.
+# ============================================================================
+
+# ── Banned HS prefixes ─────────────────────────────────────────────────────
+# Declarations with these prefixes are automatically REJECTED.
+banned_hs_prefixes:
+  - "9301"   # Military weapons
+  - "9302"   # Revolvers and pistols
+  - "2403"   # Restricted tobacco products
+
+# ── Sanctioned countries ───────────────────────────────────────────────────
+# ISO 3166-1 alpha-2 codes. Declarations from these origins → REJECT_SANCTIONED.
+sanctioned_countries: []
+# Example: ["XX", "YY"]
+
+# ── High-value threshold ───────────────────────────────────────────────────
+# Declarations above this SAR value → ESCALATE_HIGH_VALUE (browser review)
+high_value_threshold_sar: 500000.0
+
+# ── Weight threshold ───────────────────────────────────────────────────────
+# Declarations above this kg value → MANDATE_INSPECTION
+max_weight_kg: 50000.0
+
+# ── Certificate requirements ───────────────────────────────────────────────
+# Key: HS chapter prefix (2-digit) or heading (4-digit)
+# Value: list of required certificates
+#
+# If a declaration's HS code starts with the prefix and is missing
+# any listed certificate, the verdict is HOLD_PENDING_CERTIFICATES.
+certificate_requirements:
+  # Food products (HS chapters 01–24) — SFDA + Halal required
+  "01": [SFDA, Halal]
+  "02": [SFDA, Halal]
+  "03": [SFDA, Halal]
+  "04": [SFDA, Halal]
+  "05": [SFDA, Halal]
+  "06": [SFDA, Halal]
+  "07": [SFDA, Halal]
+  "08": [SFDA, Halal]
+  "09": [SFDA, Halal]
+  "10": [SFDA, Halal]
+  "11": [SFDA, Halal]
+  "12": [SFDA, Halal]
+  "13": [SFDA, Halal]
+  "14": [SFDA, Halal]
+  "15": [SFDA, Halal]
+  "16": [SFDA, Halal]
+  "17": [SFDA, Halal]
+  "18": [SFDA, Halal]
+  "19": [SFDA, Halal]
+  "20": [SFDA, Halal]
+  "21": [SFDA, Halal]
+  "22": [SFDA, Halal]
+  "23": [SFDA, Halal]
+  "24": [SFDA, Halal]
+  # Electronics (HS chapters 84–85) — SASO required
+  "84": [SASO]
+  "85": [SASO]
+  # Chemicals (HS chapters 28–38) — SASO + HazMat required
+  "28": [SASO, HazMat]
+  "29": [SASO, HazMat]
+  "30": [SASO, HazMat]
+  "31": [SASO, HazMat]
+  "32": [SASO, HazMat]
+  "33": [SASO, HazMat]
+  "34": [SASO, HazMat]
+  "35": [SASO, HazMat]
+  "36": [SASO, HazMat]
+  "37": [SASO, HazMat]
+  "38": [SASO, HazMat]

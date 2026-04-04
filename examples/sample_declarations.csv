@@ -1,0 +1,6 @@
+declaration_number,hs_code,importer_name,importer_cr,origin_country,declared_value_sar,weight_kg,port_of_entry,declaration_date,required_certificates
+FASAH-2026-00001,8471.30.00,شركة التقنية المتقدمة,1010123456,CN,150000.00,2500.0,SAJED,2026-02-15,SASO
+FASAH-2026-00002,0402.10.00,مؤسسة الغذاء الصحي,1010654321,NZ,85000.00,5000.0,SAKHI,2026-02-16,SFDA;Halal
+FASAH-2026-00003,8471.60.00,شركة الأجهزة الذكية,1010987654,KR,750000.00,1200.0,SAJED,2026-02-17,SASO
+FASAH-2026-00004,9301.00.00,Unknown Importer,9999999999,US,10000.00,500.0,SAJED,2026-02-18,
+FASAH-2026-00005,0302.10.00,مؤسسة المأكولات البحرية,1010555555,NO,95000.00,8000.0,SAKHI,2026-02-19,
