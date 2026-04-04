@@ -8,6 +8,12 @@ fasah-engine (Rust) parse + compliance steps, then either:
   - Writes a browser task JSON for the browser worker, OR
   - Writes a tracking command directly to outbox.
 
+Graceful degradation:
+  - If Rust binary is missing/fails → Python fallback parser/compliance checker
+  - If Rust engine trips circuit breaker → Python fallback until recovery
+  - Checkpoint/resume: state saved after each file so a crashed run can resume
+  - ResilientAuditLogger: buffers events in memory when disk writes fail
+
 Usage:
     python src/pipeline/orchestrator.py
     AGENT_CONFIG=config/agent_fasah.yaml python src/pipeline/orchestrator.py
@@ -60,6 +66,18 @@ logging.basicConfig(
 )
 log = logging.getLogger("fasah.orchestrator")
 
+# ── Resilience: circuit breaker for the Rust engine ──────────────────────────
+from pipeline.circuit_breaker import CircuitBreaker, CircuitOpenError  # noqa: E402
+from pipeline import fallback_parser, fallback_compliance              # noqa: E402
+from pipeline.checkpoint import PipelineCheckpoint                     # noqa: E402
+from utils.degradation import get_manager as _get_degradation_manager, Component  # noqa: E402
+
+_ENGINE_CIRCUIT = CircuitBreaker(
+    name="rust_engine",
+    failure_threshold=3,
+    recovery_timeout=float(os.environ.get("ENGINE_CIRCUIT_TIMEOUT", "120")),
+)
+
 
 # ── Config loading ────────────────────────────────────────────────────────────
 
@@ -79,6 +97,8 @@ def load_config() -> dict[str, Any]:
 def run_engine(args: list[str], timeout: int = 30) -> dict[str, Any]:
     """Call fasah-engine binary, return parsed JSON output.
 
+    استدعاء ثنائي fasah-engine وإعادة نتيجة JSON المحللة.
+
     Raises FileNotFoundError if binary not found (run: cargo build --release).
     Raises RuntimeError on non-zero exit.
     """
@@ -92,8 +112,8 @@ def run_engine(args: list[str], timeout: int = 30) -> dict[str, Any]:
         )
     except FileNotFoundError:
         log.error(
-            "fasah-engine binary not found at %s\n"
-            "Build it with: cargo build --release",
+            "fasah-engine binary not found at %s — "
+            "build with: cargo build --release",
             FASAH_ENGINE_BIN,
         )
         raise
@@ -106,6 +126,86 @@ def run_engine(args: list[str], timeout: int = 30) -> dict[str, Any]:
         )
 
     return json.loads(result.stdout)
+
+
+def run_engine_or_fallback_parse(file_path: Path) -> tuple[dict[str, Any], bool]:
+    """
+    Run ``fasah-engine parse`` through the circuit breaker.
+    Falls back to the Python parser if Rust is unavailable.
+
+    تشغيل أمر parse مع قاطع الدائرة، مع الرجوع إلى Python عند الفشل.
+
+    Returns:
+        (parse_result, used_fallback)
+    """
+    degradation = _get_degradation_manager()
+    try:
+        result = _ENGINE_CIRCUIT.call(run_engine, ["parse", str(file_path)])
+        degradation.mark_healthy(Component.RUST_PARSER, "Rust parse succeeded")
+        return result, False
+    except CircuitOpenError as exc:
+        log.warning(
+            "[DEGRADED] Rust engine circuit OPEN for parse — using Python fallback (%s)",
+            exc,
+        )
+        degradation.mark_degraded(Component.RUST_PARSER, str(exc))
+    except FileNotFoundError:
+        log.warning(
+            "[DEGRADED] fasah-engine binary not found — using Python fallback parser"
+        )
+        degradation.mark_degraded(
+            Component.RUST_PARSER, "Binary not found; using Python fallback"
+        )
+    except Exception as exc:
+        log.warning(
+            "[DEGRADED] Rust parse failed (%s) — using Python fallback parser", exc
+        )
+        degradation.mark_degraded(Component.RUST_PARSER, str(exc))
+
+    return fallback_parser.parse_file(file_path), True
+
+
+def run_engine_or_fallback_check(
+    parse_result: dict[str, Any],
+    tmp_records: Path,
+) -> tuple[dict[str, Any], bool]:
+    """
+    Run ``fasah-engine check`` through the circuit breaker.
+    Falls back to the Python compliance checker if Rust is unavailable.
+
+    تشغيل أمر check مع قاطع الدائرة، مع الرجوع إلى Python عند الفشل.
+
+    Returns:
+        (compliance_result, used_fallback)
+    """
+    degradation = _get_degradation_manager()
+    try:
+        result = _ENGINE_CIRCUIT.call(
+            run_engine, ["check", str(tmp_records), "--rules", RULES_PATH]
+        )
+        degradation.mark_healthy(Component.RUST_COMPLIANCE, "Rust check succeeded")
+        return result, False
+    except CircuitOpenError as exc:
+        log.warning(
+            "[DEGRADED] Rust engine circuit OPEN for check — using Python fallback (%s)",
+            exc,
+        )
+        degradation.mark_degraded(Component.RUST_COMPLIANCE, str(exc))
+    except FileNotFoundError:
+        log.warning(
+            "[DEGRADED] fasah-engine binary not found — using Python fallback compliance checker"
+        )
+        degradation.mark_degraded(
+            Component.RUST_COMPLIANCE, "Binary not found; using Python fallback"
+        )
+    except Exception as exc:
+        log.warning(
+            "[DEGRADED] Rust check failed (%s) — using Python fallback compliance checker",
+            exc,
+        )
+        degradation.mark_degraded(Component.RUST_COMPLIANCE, str(exc))
+
+    return fallback_compliance.check_compliance(parse_result, RULES_PATH), True
 
 
 # ── File utilities ────────────────────────────────────────────────────────────
@@ -151,49 +251,73 @@ def process_file(
     outbox_dir: Path,
     browser_tasks_dir: Path,
     audit: Any,
-) -> None:
-    """Run parse → compliance → dispatch for a single declaration file."""
+    checkpoint: "PipelineCheckpoint | None" = None,
+) -> int:
+    """
+    Run parse → compliance → dispatch for a single declaration file.
+
+    تشغيل التحليل ← الامتثال ← التوزيع لملف إعلان واحد.
+
+    Returns the number of verdicts dispatched (for checkpoint tracking).
+    """
     filename = file_path.name
-    is_json = filename.lower().endswith(".json")
 
     # ── Step 1: Parse ─────────────────────────────────────────────────────────
-    parse_args = ["parse", str(file_path)]
     log.info("Parsing %s", filename)
-    parse_result = run_engine(parse_args)
+    if checkpoint:
+        checkpoint.mark_in_flight(filename, "parse")
+
+    parse_result, parse_fallback = run_engine_or_fallback_parse(file_path)
+
     audit.record(
-        "ToolCompleted", "agent_fasah", "fasah_declaration_parse", "success",
-        {"file": filename,
-         "valid": parse_result.get("valid_records"),
-         "invalid": parse_result.get("invalid_records")},
+        "ToolCompleted", "agent_fasah", "fasah_declaration_parse",
+        "success" if not parse_fallback else "degraded",
+        {
+            "file": filename,
+            "valid": parse_result.get("valid_records"),
+            "invalid": parse_result.get("invalid_records"),
+            "fallback": parse_fallback,
+        },
     )
 
     records = parse_result.get("records", [])
     if not records:
         log.warning("No valid declarations in %s", filename)
-        return
+        return 0
 
     # ── Step 2: Compliance Check ──────────────────────────────────────────────
-    # Write records to a temp file for the Rust binary to read
+    if checkpoint:
+        checkpoint.mark_step(filename, "check")
+
     tmp_records = file_path.parent / f".tmp_records_{filename}.json"
     tmp_records.write_text(
         json.dumps(parse_result, ensure_ascii=False), encoding="utf-8"
     )
     try:
-        check_args = ["check", str(tmp_records), "--rules", RULES_PATH]
-        log.info("Checking compliance for %d declarations from %s", len(records), filename)
-        compliance_result = run_engine(check_args)
+        log.info("Checking compliance for %d declaration(s) from %s", len(records), filename)
+        compliance_result, check_fallback = run_engine_or_fallback_check(
+            parse_result, tmp_records
+        )
     finally:
         tmp_records.unlink(missing_ok=True)
 
     audit.record(
-        "ToolCompleted", "agent_fasah", "fasah_compliance_check", "success",
-        {"file": filename,
-         "approved": compliance_result.get("approved"),
-         "held": compliance_result.get("held"),
-         "rejected": compliance_result.get("rejected")},
+        "ToolCompleted", "agent_fasah", "fasah_compliance_check",
+        "success" if not check_fallback else "degraded",
+        {
+            "file": filename,
+            "approved": compliance_result.get("approved"),
+            "held": compliance_result.get("held"),
+            "rejected": compliance_result.get("rejected"),
+            "fallback": check_fallback,
+        },
     )
 
     # ── Step 3: Process Verdicts ──────────────────────────────────────────────
+    if checkpoint:
+        checkpoint.mark_step(filename, "dispatch")
+
+    verdicts_count = 0
     for verdict in compliance_result.get("verdicts", []):
         decl_num = verdict.get("declaration_number", "UNKNOWN")
         action = verdict.get("action", "approve")
@@ -209,6 +333,9 @@ def process_file(
             _write_tracking_command(
                 decl_num, action, risk_score, outbox_dir
             )
+        verdicts_count += 1
+
+    return verdicts_count
 
 
 def _dispatch_browser_task(
@@ -308,8 +435,8 @@ def main() -> None:
     for d in [inbox_dir, outbox_dir, audit_dir, processed_dir, quarantine_dir, browser_tasks_dir]:
         d.mkdir(parents=True, exist_ok=True)
 
-    from utils.audit import AuditLogger
-    audit = AuditLogger("agent_fasah", audit_dir)
+    from utils.resilient_audit import ResilientAuditLogger
+    audit = ResilientAuditLogger("agent_fasah", audit_dir)
 
     audit.record(
         "AgentStarted", "agent_fasah", "agent_fasah", "success",
@@ -322,6 +449,16 @@ def main() -> None:
     )
 
     known_hashes = load_hashes(hashes_file)
+
+    # ── Checkpoint: resume from where we left off ─────────────────────────────
+    checkpoint = PipelineCheckpoint(inbox_dir)
+    in_flight = checkpoint.get_in_flight()
+    if in_flight:
+        log.warning(
+            "[RESUME] Found %d in-flight file(s) from previous run: %s — "
+            "they will be re-processed.",
+            len(in_flight), list(in_flight.keys()),
+        )
 
     # Graceful shutdown on SIGINT / SIGTERM
     running = True
@@ -351,11 +488,14 @@ def main() -> None:
                 continue
 
             try:
-                process_file(f, outbox_dir, browser_tasks_dir, audit)
+                verdicts = process_file(
+                    f, outbox_dir, browser_tasks_dir, audit, checkpoint
+                )
                 known_hashes.add(sha)
                 append_hash(hashes_file, sha, f.name)
+                checkpoint.mark_complete(f.name, sha, verdicts)
                 move_safe(f, processed_dir / f.name)
-                log.info("Pipeline complete: %s", f.name)
+                log.info("Pipeline complete: %s (%d verdict(s))", f.name, verdicts)
             except Exception as exc:
                 log.error("Pipeline failed for %s: %s — quarantining", f.name, exc)
                 audit.record(
@@ -363,6 +503,7 @@ def main() -> None:
                     {"file": f.name, "error": str(exc)},
                     risk_level="medium",
                 )
+                checkpoint.mark_failed(f.name, str(exc))
                 move_safe(f, quarantine_dir / f.name)
 
         if running:
