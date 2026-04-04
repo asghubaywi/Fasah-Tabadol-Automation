@@ -1,0 +1,84 @@
+   Compiling fasah-engine v0.1.0 (C:\Users\User\workspace\Fasah-Tabadol-Automation\.claude\worktrees\nervous-lederberg\src\agents)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.49s
+     Running `target\debug\fasah-engine.exe parse examples/sample_declarations.csv`
+{
+  "total_records": 5,
+  "valid_records": 5,
+  "invalid_records": 0,
+  "records": [
+    {
+      "declaration_number": "FASAH-2026-00001",
+      "hs_code": "8471.30.00",
+      "importer_name": "شركة التقنية المتقدمة",
+      "importer_cr": "1010123456",
+      "origin_country": "CN",
+      "declared_value_sar": 150000.0,
+      "weight_kg": 2500.0,
+      "port_of_entry": "SAJED",
+      "declaration_date": "2026-02-15",
+      "required_certificates": [
+        "SASO"
+      ],
+      "source_line": 2
+    },
+    {
+      "declaration_number": "FASAH-2026-00002",
+      "hs_code": "0402.10.00",
+      "importer_name": "مؤسسة الغذاء الصحي",
+      "importer_cr": "1010654321",
+      "origin_country": "NZ",
+      "declared_value_sar": 85000.0,
+      "weight_kg": 5000.0,
+      "port_of_entry": "SAKHI",
+      "declaration_date": "2026-02-16",
+      "required_certificates": [
+        "SFDA",
+        "Halal"
+      ],
+      "source_line": 3
+    },
+    {
+      "declaration_number": "FASAH-2026-00003",
+      "hs_code": "8471.60.00",
+      "importer_name": "شركة الأجهزة الذكية",
+      "importer_cr": "1010987654",
+      "origin_country": "KR",
+      "declared_value_sar": 750000.0,
+      "weight_kg": 1200.0,
+      "port_of_entry": "SAJED",
+      "declaration_date": "2026-02-17",
+      "required_certificates": [
+        "SASO"
+      ],
+      "source_line": 4
+    },
+    {
+      "declaration_number": "FASAH-2026-00004",
+      "hs_code": "9301.00.00",
+      "importer_name": "Unknown Importer",
+      "importer_cr": "9999999999",
+      "origin_country": "US",
+      "declared_value_sar": 10000.0,
+      "weight_kg": 500.0,
+      "port_of_entry": "SAJED",
+      "declaration_date": "2026-02-18",
+      "required_certificates": [],
+      "source_line": 5
+    },
+    {
+      "declaration_number": "FASAH-2026-00005",
+      "hs_code": "0302.10.00",
+      "importer_name": "مؤسسة المأكولات البحرية",
+      "importer_cr": "1010555555",
+      "origin_country": "NO",
+      "declared_value_sar": 95000.0,
+      "weight_kg": 8000.0,
+      "port_of_entry": "SAKHI",
+      "declaration_date": "2026-02-19",
+      "required_certificates": [],
+      "source_line": 6
+    }
+  ],
+  "errors": [],
+  "content_hash": "258ad91350880f4f36ffb4b54b978da6b85a82c91bbcfd45d66fa1cdf6d066e2"
+}

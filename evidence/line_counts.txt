@@ -1,0 +1,56 @@
+=== Line Counts by File Type ===
+
+--- Rust (.rs) ---
+  373  ./src/agents/src/compliance.rs
+  317  ./src/agents/src/dispatcher.rs
+  108  ./src/agents/src/idempotency.rs
+  13  ./src/agents/src/lib.rs
+  145  ./src/agents/src/main.rs
+  280  ./src/agents/src/parser.rs
+  362  ./src/agents/src/result_watcher.rs
+  132  ./src/agents/src/shipment.rs
+  50  ./src/agents/src/stability.rs
+  TOTAL: 1780 lines
+
+--- Python (.py) ---
+  970  ./src/browser/worker.py
+  0  ./src/browser/__init__.py
+  379  ./src/pipeline/orchestrator.py
+  0  ./src/pipeline/__init__.py
+  56  ./src/utils/audit.py
+  0  ./src/utils/__init__.py
+  TOTAL: 1405 lines
+
+--- TOML (.toml) ---
+  3  ./Cargo.toml
+  32  ./src/agents/Cargo.toml
+  TOTAL: 35 lines
+
+--- YAML (.yaml/.yml) ---
+  60  ./.github/workflows/ci.yml
+  35  ./config/agent_fasah.yaml
+  78  ./config/fasah_rules.yaml
+  42  ./docker-compose.yml
+  TOTAL: 215 lines
+
+--- CSV (.csv) ---
+  6  ./examples/sample_declarations.csv
+  TOTAL: 6 lines
+
+--- Markdown (.md) ---
+  37  ./.github/ISSUE_TEMPLATE/bug_report.md
+  25  ./.github/ISSUE_TEMPLATE/feature_request.md
+  8  ./.pytest_cache/README.md
+  111  ./CONTRIBUTING.md
+  121  ./docs/architecture.md
+  155  ./docs/setup.md
+  273  ./README.md
+  TOTAL: 730 lines
+
+=== GRAND SUMMARY ===
+  Rust (.rs):        1780 lines
+  Python (.py):      1405 lines
+  TOML (.toml):      35 lines
+  YAML (.yaml/.yml): 215 lines
+  CSV (.csv):        6 lines
+  Markdown (.md):    730 lines

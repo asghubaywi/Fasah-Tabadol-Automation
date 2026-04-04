@@ -1,0 +1,113 @@
+    Updating crates.io index
+    Blocking waiting for file lock on package cache
+     Locking 117 packages to latest compatible versions
+      Adding generic-array v0.14.7 (available: v0.14.9)
+      Adding sha2 v0.10.9 (available: v0.11.0)
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling windows-link v0.2.1
+   Compiling cfg-if v1.0.4
+   Compiling serde_core v1.0.228
+   Compiling version_check v0.9.5
+   Compiling typenum v1.19.0
+   Compiling once_cell v1.21.4
+   Compiling serde v1.0.228
+   Compiling memchr v2.8.0
+   Compiling autocfg v1.5.0
+   Compiling smallvec v1.15.1
+   Compiling regex-syntax v0.8.10
+   Compiling parking_lot_core v0.9.12
+   Compiling zmij v1.0.21
+   Compiling getrandom v0.4.2
+   Compiling winapi v0.3.9
+   Compiling scopeguard v1.2.0
+   Compiling serde_json v1.0.149
+   Compiling pin-project-lite v0.2.17
+   Compiling itoa v1.0.18
+   Compiling log v0.4.29
+   Compiling hashbrown v0.16.1
+   Compiling equivalent v1.0.2
+   Compiling lazy_static v1.5.0
+   Compiling anyhow v1.0.102
+   Compiling bytes v1.11.1
+   Compiling windows-sys v0.61.2
+   Compiling thread_local v1.1.9
+   Compiling lock_api v0.4.14
+   Compiling sharded-slab v0.1.7
+   Compiling cpufeatures v0.2.17
+   Compiling ryu v1.0.23
+   Compiling tracing-core v0.1.36
+   Compiling unsafe-libyaml v0.2.11
+   Compiling fastrand v2.4.0
+   Compiling hex v0.4.3
+   Compiling generic-array v0.14.7
+   Compiling num-traits v0.2.19
+   Compiling aho-corasick v1.1.4
+   Compiling tracing-log v0.2.0
+   Compiling indexmap v2.13.1
+   Compiling uuid v1.23.0
+   Compiling parking_lot v0.12.5
+   Compiling syn v2.0.117
+   Compiling regex-automata v0.4.14
+   Compiling mio v1.2.0
+   Compiling socket2 v0.6.3
+   Compiling nu-ansi-term v0.50.3
+   Compiling tempfile v3.27.0
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling digest v0.10.7
+   Compiling fs2 v0.4.3
+   Compiling sha2 v0.10.9
+   Compiling matchers v0.2.0
+   Compiling regex v1.12.3
+   Compiling serde_derive v1.0.228
+   Compiling tracing-attributes v0.1.31
+   Compiling tokio-macros v2.7.0
+   Compiling tokio v1.51.0
+   Compiling tracing v0.1.44
+   Compiling tracing-serde v0.2.0
+   Compiling chrono v0.4.44
+   Compiling serde_yaml v0.9.34+deprecated
+   Compiling tracing-subscriber v0.3.23
+   Compiling fasah-engine v0.1.0 (C:\Users\User\workspace\Fasah-Tabadol-Automation\.claude\worktrees\nervous-lederberg\src\agents)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.94s
+     Running unittests src\lib.rs (target\debug\deps\fasah_engine-7b21ff0fce4c105e.exe)
+
+running 19 tests
+test dispatcher::tests::test_needs_browser_verification ... ok
+test compliance::tests::test_reject_sanctioned_country ... ok
+test parser::tests::test_parse_invalid_country_code ... ok
+test compliance::tests::test_approve_compliant_electronics ... ok
+test compliance::tests::test_escalate_high_value ... ok
+test compliance::tests::test_hold_missing_certificate ... ok
+test parser::tests::test_parse_valid_csv ... ok
+test shipment::tests::test_terminal_states ... ok
+test result_watcher::tests::test_parse_found_bundle ... ok
+test shipment::tests::test_valid_transitions ... ok
+test shipment::tests::test_held_can_return_to_checked ... ok
+test compliance::tests::test_reject_banned_hs_code ... ok
+test parser::tests::test_parse_negative_value ... ok
+test result_watcher::tests::test_handle_found_held ... ok
+test result_watcher::tests::test_write_escalation ... ok
+test result_watcher::tests::test_handle_found_approved ... ok
+test dispatcher::tests::test_dispatch_creates_task_file ... ok
+test dispatcher::tests::test_retry_increments_attempt ... ok
+test dispatcher::tests::test_retry_max_exceeded ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src\main.rs (target\debug\deps\fasah_engine-d8d4de68d1ca1208.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests fasah_engine
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
