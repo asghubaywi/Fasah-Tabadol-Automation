@@ -32,7 +32,7 @@ from typing import Any
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-WORKER_VERSION = "1.0.0-pw"
+WORKER_VERSION = "1.1.0-pw"  # 1.1: added health monitor + retry
 POLL_INTERVAL_SEC = int(os.environ.get("ZC_POLL_INTERVAL", "3"))
 
 # ── Default paths resolve relative to project root ────────────────────────────
@@ -113,7 +113,7 @@ class ErrorCode:
 # ---------------------------------------------------------------------------
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
-    level=logging.INFO,
+    level=os.environ.get("LOG_LEVEL", "INFO"),
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
@@ -121,6 +121,14 @@ logging.basicConfig(
     ],
 )
 log = logging.getLogger("fasah_worker")
+
+# ── Health monitor (module-level singleton) ───────────────────────────────────
+from browser.health_check import BrowserHealthMonitor  # noqa: E402
+
+_HEALTH = BrowserHealthMonitor(
+    max_consecutive_failures=int(os.environ.get("ZC_MAX_CONSECUTIVE_FAILURES", "5")),
+    task_timeout_secs=float(os.environ.get("ZC_TASK_TIMEOUT_SECS", "300")),
+)
 
 
 # ---------------------------------------------------------------------------
@@ -771,7 +779,23 @@ def _resolve_playbook(raw_name: str) -> str:
 
 
 def process_task(task_path: Path) -> None:
+    """
+    Load and execute one task file, updating the health monitor throughout.
+
+    تحميل وتنفيذ ملف مهمة واحد مع تحديث مراقب الصحة.
+    """
     log.info("Processing task: %s", task_path.name)
+
+    # ── Graceful skip if browser is in a bad state ────────────────────────────
+    if _HEALTH.is_browser_likely_crashed():
+        log.warning(
+            "[DEGRADED] Skipping task %s — browser health monitor reports "
+            "%d consecutive failures (browser may be crashed). "
+            "Restart the worker to reset.",
+            task_path.name, _HEALTH._consecutive_failures,
+        )
+        _HEALTH.on_task_skip(task_path.stem)
+        return
 
     try:
         with open(task_path, "r", encoding="utf-8") as f:
@@ -789,14 +813,20 @@ def process_task(task_path: Path) -> None:
         log.info("Skipping duplicate task %s.", task_id)
         PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
         shutil.move(str(task_path), str(PROCESSED_DIR / task_path.name))
+        _HEALTH.on_task_skip(task_id)
         return
 
     lock_fd = acquire_task_lock(task_id)
     if lock_fd is None:
         return
 
+    _HEALTH.on_task_start(task_id)
     try:
         _process_task_locked(task_path, task, task_id, playbook_name)
+        _HEALTH.on_task_success(task_id)
+    except Exception as exc:
+        _HEALTH.on_task_failure(task_id, str(exc))
+        raise
     finally:
         release_task_lock(lock_fd, task_id)
 
@@ -947,6 +977,9 @@ def main():
     validate_prod_config()
     ensure_directories()
 
+    _HEALTH.reset_failure_count()  # fresh start on each launch
+    _poll_count = 0
+
     while True:
         try:
             task_files = sorted(INBOX_DIR.glob("*.json"))
@@ -957,6 +990,19 @@ def main():
                         process_task(tf)
                     except Exception:
                         log.exception("Unhandled error processing %s", tf.name)
+
+            # Log health summary every 20 poll cycles (~1 min at default 3s interval)
+            _poll_count += 1
+            if _poll_count % 20 == 0:
+                h = _HEALTH.status()
+                log.info(
+                    "[Health] tasks total=%d ok=%d failed=%d skipped=%d "
+                    "consecutive_failures=%d healthy=%s",
+                    h["total_tasks"], h["successful_tasks"],
+                    h["failed_tasks"], h["skipped_tasks"],
+                    h["consecutive_failures"], h["healthy"],
+                )
+
             time.sleep(POLL_INTERVAL_SEC)
         except KeyboardInterrupt:
             log.info("Shutting down (SIGINT).")
