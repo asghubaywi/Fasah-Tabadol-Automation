@@ -85,8 +85,15 @@ class ResilientAuditLogger(AuditLogger):
             "data": data or {},
         }
         line = json.dumps(entry, ensure_ascii=False) + "\n"
-        with self._lock:
-            self._write_line(line)
+        try:
+            with self._lock:
+                self._write_line(line)
+        except Exception as exc:
+            # Honour the "never raises" contract even for unexpected errors
+            print(
+                f"[audit] WARN: unexpected error in record(): {exc}",
+                file=sys.stderr,
+            )
 
     def flush(self) -> None:
         """

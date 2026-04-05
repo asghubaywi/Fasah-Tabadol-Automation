@@ -104,16 +104,17 @@ def _check_record(record: dict[str, Any], rules: dict[str, Any]) -> dict[str, An
 
     # ── Priority 3: Missing certificates ─────────────────────────────────────
     cert_requirements: dict[str, list[str]] = rules.get("certificate_requirements", {})
-    required: list[str] = []
-    # Check 4-digit heading first, then 2-digit chapter
-    for prefix_len in (4, 2):
+    required_set: set[str] = set()
+    # Merge requirements from both 2-digit chapter AND 4-digit heading (mirrors Rust)
+    for prefix_len in (2, 4):
         prefix = hs[:prefix_len]
         if prefix in cert_requirements:
-            required = [c.strip().upper() for c in cert_requirements[prefix]]
-            break
+            required_set.update(
+                c.strip().upper() for c in cert_requirements[prefix]
+            )
 
-    if required:
-        missing = [c for c in required if c not in certs]
+    if required_set:
+        missing = sorted(c for c in required_set if c not in certs)
         if missing:
             return {
                 "declaration_number": decl_num,
@@ -188,13 +189,12 @@ def check_compliance(
 
         if action in ("approve", "approve_with_conditions"):
             counts["approved"] += 1
-        elif action in ("hold_pending_certificates", "mandate_inspection"):
+        elif action == "hold_pending_certificates":
             counts["held"] += 1
         elif action in ("reject", "reject_sanctioned"):
             counts["rejected"] += 1
-        elif action == "escalate_high_value":
+        elif action in ("escalate_high_value", "mandate_inspection"):
             counts["escalated"] += 1
-            counts["held"] += 1  # escalated also counts as held
 
     return {
         "total_checked": len(records),

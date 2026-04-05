@@ -146,7 +146,19 @@ def parse_csv(file_path: Path) -> dict[str, Any]:
         file_path.name,
     )
 
-    content_hash = _sha256_file(file_path)
+    try:
+        content_hash = _sha256_file(file_path)
+    except OSError as exc:
+        log.error("Cannot hash '%s': %s", file_path, exc)
+        return {
+            "total_records": 0,
+            "valid_records": 0,
+            "invalid_records": 0,
+            "records": [],
+            "errors": [f"File read error: {exc}"],
+            "content_hash": "",
+        }
+
     records: list[dict[str, Any]] = []
     all_errors: list[str] = []
     row_error_count = 0
