@@ -70,6 +70,7 @@ log = logging.getLogger("fasah.orchestrator")
 from pipeline.circuit_breaker import CircuitBreaker, CircuitOpenError  # noqa: E402
 from pipeline import fallback_parser, fallback_compliance              # noqa: E402
 from pipeline.checkpoint import PipelineCheckpoint                     # noqa: E402
+from pipeline.verification import VerificationEngine                   # noqa: E402
 from utils.degradation import get_manager as _get_degradation_manager, Component  # noqa: E402
 
 _ENGINE_CIRCUIT = CircuitBreaker(
@@ -416,6 +417,117 @@ def _write_tracking_command(
     log.info("Tracking command: %s → %s", decl_num, new_status)
 
 
+# ── Stage 5: Post-execution verification ─────────────────────────────────────
+
+def _verify_browser_results(
+    browser_results_dir: Path,
+    outbox_dir: Path,
+    audit: Any,
+) -> None:
+    """
+    Scan completed browser results and verify decisions match portal reality.
+
+    مسح نتائج المتصفح المكتملة والتحقق من تطابق القرارات مع واقع البوابة.
+    """
+    if not browser_results_dir.exists():
+        return
+
+    verified_marker_dir = browser_results_dir / ".verified"
+    verified_marker_dir.mkdir(parents=True, exist_ok=True)
+
+    engine = VerificationEngine(audit)
+    found_any = False
+
+    for entry in browser_results_dir.iterdir():
+        if not entry.is_dir() or entry.name.startswith("."):
+            continue
+
+        bundle_path = entry / "bundle.json"
+        if not bundle_path.exists():
+            continue
+
+        # Skip already-verified bundles
+        marker = verified_marker_dir / f"{entry.name}.verified"
+        if marker.exists():
+            continue
+
+        found_any = True
+        try:
+            bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            log.warning("Cannot read bundle %s: %s", bundle_path, exc)
+            continue
+
+        if bundle.get("status") != "FOUND":
+            # Only verify FOUND results (others are retries/escalations)
+            marker.write_text(bundle.get("status", "SKIPPED"), encoding="utf-8")
+            continue
+
+        # Build a result_action-like dict for verification
+        result_action = {
+            "task_id": bundle.get("task_id", ""),
+            "declaration_number": _extract_decl_from_task_id(
+                bundle.get("task_id", "")
+            ),
+            "actual_portal_status": bundle.get("current_status"),
+            "predicted_action": _infer_action_from_task_id(
+                bundle.get("task_id", ""), outbox_dir
+            ),
+            "risk_score": 0,
+        }
+        engine.verify_result_action(result_action)
+        marker.write_text("VERIFIED", encoding="utf-8")
+
+    if not found_any:
+        return
+
+    report = engine.generate_report()
+    if report["summary"]["mismatches"] > 0:
+        report_dir = outbox_dir / "verification_reports"
+        path = engine.save_report(report_dir)
+        log.warning(
+            "[VERIFICATION] %d mismatch(es) detected — report: %s",
+            report["summary"]["mismatches"], path,
+        )
+        audit.record(
+            "VerificationReport", "agent_fasah", "verification",
+            report["verification_status"],
+            report["summary"],
+            risk_level="high" if engine.has_critical_mismatches else "medium",
+        )
+    elif report["summary"]["total_verified"] > 0:
+        log.info(
+            "[VERIFICATION] %d declaration(s) verified — all match",
+            report["summary"]["matches"],
+        )
+
+
+def _extract_decl_from_task_id(task_id: str) -> str:
+    """Extract declaration number from task_id like 'fasah-FASAH-2026-00002-...'."""
+    if not task_id.startswith("fasah-"):
+        return "UNKNOWN"
+    import re
+    body = task_id[6:]  # strip "fasah-"
+    # Trailing timestamp is YYYYMMDD_HHMMSS or YYYYMMDD_HHMMSS_fff
+    match = re.search(r"-(\d{8}_\d{6}(?:_\d+)?)$", body)
+    if match:
+        return body[: match.start()]
+    return body
+
+
+def _infer_action_from_task_id(task_id: str, outbox_dir: Path) -> str:
+    """Try to read the pending_tasks.json to find the predicted action."""
+    pending_path = outbox_dir / "browser_tasks" / ".pending_tasks.json"
+    if not pending_path.exists():
+        return ""
+    try:
+        pending = json.loads(pending_path.read_text(encoding="utf-8"))
+        entry = pending.get(task_id, {})
+        return entry.get("predicted_outcome", "")
+    except (OSError, json.JSONDecodeError):
+        return ""
+
+
 # ── Main loop ─────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -505,6 +617,10 @@ def main() -> None:
                 )
                 checkpoint.mark_failed(f.name, str(exc))
                 move_safe(f, quarantine_dir / f.name)
+
+        # ── Step 5: Verify browser results ──────────────────────────────────
+        browser_results_dir = outbox_dir / "browser_results"
+        _verify_browser_results(browser_results_dir, outbox_dir, audit)
 
         if running:
             time.sleep(poll_secs)
