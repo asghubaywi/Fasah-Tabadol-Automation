@@ -1,7 +1,13 @@
 # Executable Tasks / المهام التنفيذية
 
 > Derived from `plan.md`, dependency-ordered. Each task is concrete and independently verifiable.
-> **None of the implementation tasks below have been executed** — this is Phase B preparation. Discovery + documentation (Phase A) is the only work performed so far.
+>
+> **✅ Executed in the "merge & fix everything" pass (all gates green — see `docs/spec-driven/06-baseline-verification.md`):**
+> T-001, T-002, T-003 (gates), T-101, T-102, T-103 (bugs), T-105 (compliance equivalence),
+> T-004 (CI on main+master +pytest), T-106 (Dockerfile — added, not built here), T-306 (Cargo.lock),
+> T-108 (empty-sanctions warning), and T-201 **partially** (worker gate tests; live playbook still TODO).
+> **Remaining / deferred** (larger change or needs a human decision): T-202, T-203, T-204, all of Phase 3–5,
+> and every `👤` task. See `04-gap-analysis.md` §Resolution.
 > Fields: Goal · Files · Requirements · Depends-on · Steps · Tests · Acceptance · Closure evidence · Risk · Parallelizable · Needs human approval · May change existing behavior.
 
 Legend: 🟢 low risk · 🟡 medium · 🔴 high. ⚠ = may change runtime behavior. 👤 = needs human approval.

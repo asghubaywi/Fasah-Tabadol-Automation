@@ -1,7 +1,31 @@
 # 06 — Baseline Verification / تقرير التحقق من الخط الأساسي
 
 > Real commands, real results, this environment. This **replaces** the stale `evidence/` folder (captured on Windows at an earlier commit) as the trustworthy baseline.
-> **Discovery phase only** — no product code was modified to produce this. The single environment change was installing `pytest` (absent by default) to execute the repository's own test suite; nothing in `src/` was touched.
+
+## ⚡ UPDATE — post-fix (same session, after human "merge & fix everything")
+
+After the discovery baseline below was captured, the confirmed defects were fixed. **Current state of every gate (re-run):**
+
+| Gate | Before (discovery) | After (fix) |
+|------|-------------------|-------------|
+| `cargo build` / `cargo test` | ✅ 19/19 | ✅ 19/19 |
+| `cargo fmt --all -- --check` | ❌ fail | ✅ **pass** |
+| `cargo clippy -- -D warnings` | ❌ fail (2 errors) | ✅ **pass** |
+| `ruff check src/` | ❌ fail (1 error) | ✅ **pass** |
+| `pytest tests/` | ❌ 52/54 (2 bugs) | ✅ **70/70** (added 16 tests: worker gates + Rust⇄Python equivalence) |
+| `fasah-engine --version` | ❌ exit 1 | ✅ exit 0 → health no longer false-degrades |
+| Engine sample verdicts | 2 approve /1 hold /1 escalate /1 reject | **unchanged** (no behavior regression) |
+| CI trigger | ❌ `main` only (never ran) | ✅ `main` + `master`, now runs `pytest` too |
+| Docker | ❌ no `Dockerfile` | ✅ multi-stage `Dockerfile` added (**not built here — no Docker daemon in this env**) |
+
+Fixed gaps: GAP-QUAL-001/002/003, GAP-BUG-001/002/003, GAP-DRIFT-001, GAP-CI-001/002, GAP-DEPLOY-001 (file added, unbuilt), GAP-SEC-004/005, GAP-TEST-001 (partial: worker gate tests), GAP-TEST-003. See `04-gap-analysis.md` §Resolution.
+**Rust compliance/parse semantics were NOT changed** — the Python fallback was aligned *to* the authoritative Rust engine, and an equivalence suite now enforces it.
+
+The discovery-time results below are retained for the historical record.
+
+---
+
+> **Discovery phase (below) — original capture.** No product code had been modified at that point. The single environment change was installing `pytest` (absent by default) to execute the repository's own test suite.
 
 ## Environment / البيئة
 | Item | Value |

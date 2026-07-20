@@ -110,4 +110,19 @@ Maps every requirement → spec → implementation → interface → storage →
 | Inferred | 0 | 4 | **4** | 4.8% |
 | **Linked to ≥1 test (FV+PV)** | 34 | 4 | **38** | **45.8%** |
 
+### Post-fix roll-up (after "merge & fix everything")
+
+New tests added — `tests/test_equivalence.py` (Rust⇄Python compliance parity) and `tests/test_worker.py` (browser gate logic) — plus the two bug-fix tests now passing, raise coverage:
+
+| State | Total | % of 83 |
+|-------|------:|--------:|
+| Fully Verified | **31** | 37.3% |
+| Partially Verified | **17** | 20.5% |
+| Implemented Without Test | 24 | 28.9% |
+| Unknown (unverified) | 7 | 8.4% |
+| Inferred | 4 | 4.8% |
+| **Linked to ≥1 test (FV+PV)** | **48** | **57.8%** |
+
+Promotions: REQ-COMP-005/007/008, REQ-RESIL-003, REQ-AUDIT-002 → Fully Verified (equivalence + fixed bug tests); REQ-BROW-006/007/008/010/011/012 and NFR-SEC-001/002/003 → Partially Verified (gate logic now unit-tested; the live Playwright playbook path remains unverified — GAP-TEST-001 partial).
+
 **Documented Without Implementation:** none material (docs mostly under-document real features rather than over-promise; the reverse case is the schema `agent_browser` field — GAP-CONTRACT-001). **Deprecated:** none formally; `idempotency.rs`/`stability.rs` are *de facto* unused (GAP-ARCH-004).

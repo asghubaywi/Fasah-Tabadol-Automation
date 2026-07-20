@@ -6,6 +6,19 @@
 
 ---
 
+## 📚 التوثيق التفصيلي / Spec-Driven Documentation
+
+The authoritative, evidence-based specification lives under [`docs/spec-driven/`](docs/spec-driven/) and [`specs/`](specs/):
+constitution ([`.specify/memory/constitution.md`](.specify/memory/constitution.md)), current-system specs ([`specs/current-system/`](specs/current-system/)),
+as-built architecture, ADRs ([`docs/adr/`](docs/adr/)), gap analysis, traceability, and the phased plan.
+**AI agents must read [`AGENTS.md`](AGENTS.md) + the constitution before changing code.**
+
+Notes that supersede older prose in this README: the pipeline has a full **resilience layer** (circuit breaker, Python
+fallbacks, checkpoint/resume, degradation manager, resilient audit); the browser worker enforces **security gates 9–13**
+(inherited numbering) and is **POSIX-only** (`fcntl`).
+
+---
+
 ## ما هذا المشروع؟ / What is this?
 
 يقوم هذا المشروع بأتمتة دورة التخليص الجمركي من البداية إلى النهاية:

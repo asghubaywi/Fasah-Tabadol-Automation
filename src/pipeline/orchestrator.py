@@ -448,6 +448,25 @@ def main() -> None:
         inbox_dir, poll_secs, FASAH_ENGINE_BIN,
     )
 
+    # Surface a disabled sanction screen prominently (GAP-SEC-005): an empty
+    # sanctioned_countries list means origin-sanction screening is effectively
+    # OFF. Populating the list is a human/policy decision (GAP-HUM-007).
+    try:
+        with open(RULES_PATH, "r", encoding="utf-8") as rf:
+            _rules_doc = yaml.safe_load(rf) or {}
+        if not _rules_doc.get("sanctioned_countries"):
+            log.warning(
+                "[POLICY] sanctioned_countries is EMPTY in %s — origin sanction "
+                "screening is DISABLED until configured.", RULES_PATH,
+            )
+            audit.record(
+                "PolicyWarning", "agent_fasah", "sanctions_screen", "disabled",
+                {"rules_path": RULES_PATH}, risk_level="medium",
+            )
+    except OSError as exc:
+        log.warning("Could not read rules file %s to verify sanctions list: %s",
+                    RULES_PATH, exc)
+
     known_hashes = load_hashes(hashes_file)
 
     # ── Checkpoint: resume from where we left off ─────────────────────────────

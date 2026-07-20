@@ -15,6 +15,18 @@
 
 Category legend: BUG (confirmed defect), CI, DEPLOY, QUAL (lint/format), CONTRACT, ARCH (architecture debt), DRIFT (Rust↔Python), TEST (coverage), SEC (security), OPS (operability), DOC (doc conflict), HUM (needs human decision).
 
+## Resolution status (post-fix) / حالة المعالجة
+
+Following the human "merge & fix everything" instruction, the safely-fixable items were resolved and verified (all gates green — see `06-baseline-verification.md`). The Rust engine's compliance/parse **semantics were not changed**; the Python fallback was aligned to it and an equivalence suite now enforces parity.
+
+| Status | IDs |
+|--------|-----|
+| ✅ **Resolved & verified** | GAP-QUAL-001, GAP-QUAL-002, GAP-QUAL-003, GAP-BUG-001, GAP-BUG-002, GAP-BUG-003, GAP-DRIFT-001, GAP-CI-001, GAP-CI-002, GAP-SEC-004, GAP-SEC-005 (startup warning), GAP-TEST-003 |
+| 🟡 **Partially resolved** | GAP-TEST-001 (worker *gate* tests added; Playwright playbook still needs live/mocked-page coverage), GAP-DEPLOY-001 (`Dockerfile` added and static-reviewed, but **not built** here — no Docker daemon in this env) |
+| ⏳ **Deferred — larger change or needs a human decision** | GAP-CONTRACT-001, GAP-ARCH-001/002/003/004, GAP-DRIFT-002, GAP-TEST-002/004, GAP-SEC-001/002/003, GAP-OPS-001/002/003, GAP-DOC-001/002/003, and all **GAP-HUM-*** (compliance regulatory validation, portal-automation legal basis, canonical dispatcher, session encryption intent, branch strategy already applied as main+master, sanctions policy content) |
+
+> "Fixed" here means the defect is gone and a test/gate proves it. It does **not** claim the system is production-ready — the deferred and human-decision items above remain, and the browser worker's live portal path is still unverified against a real Fasah session.
+
 ---
 
 ## P1 — High

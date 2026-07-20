@@ -2,13 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   pull_request:
-    branches: [main]
+    branches: [main, master]
 
 jobs:
   rust:
-    name: Rust — build & test
+    name: Rust — build, test & lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,14 +18,14 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: Cache cargo registry
+      - name: Cache cargo
         uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
 
       - name: Check formatting
@@ -38,7 +38,7 @@ jobs:
         run: cargo test
 
   python:
-    name: Python — lint
+    name: Python — lint & test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,13 +48,31 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      # Rust is needed so the Rust⇄Python compliance equivalence suite runs
+      # (tests/test_equivalence.py skips itself if the engine isn't built).
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Install Python dependencies
         run: |
           pip install -r requirements.txt
-          pip install ruff
+          pip install ruff pytest
 
-      - name: Install Playwright browsers
-        run: playwright install chromium
+      - name: Build fasah-engine (enables equivalence tests)
+        run: cargo build
 
       - name: Lint with ruff
         run: ruff check src/
+
+      - name: Run tests
+        run: pytest tests/ -v

@@ -26,10 +26,15 @@ use fasah_engine::{
     parser::DeclarationParser,
     result_watcher::scan_results,
 };
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
+
+    if args.iter().any(|a| a == "--version" || a == "-V") {
+        println!("fasah-engine {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
 
     if args.len() < 3 {
         print_usage();
@@ -57,7 +62,7 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-fn cmd_parse(file_path: &PathBuf, args: &[String]) -> anyhow::Result<()> {
+fn cmd_parse(file_path: &Path, args: &[String]) -> anyhow::Result<()> {
     let content = std::fs::read_to_string(file_path)
         .with_context(|| format!("cannot read '{}'", file_path.display()))?;
 
@@ -75,7 +80,7 @@ fn cmd_parse(file_path: &PathBuf, args: &[String]) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn cmd_check(file_path: &PathBuf, args: &[String]) -> anyhow::Result<()> {
+fn cmd_check(file_path: &Path, args: &[String]) -> anyhow::Result<()> {
     let content = std::fs::read_to_string(file_path)
         .with_context(|| format!("cannot read '{}'", file_path.display()))?;
 
@@ -91,11 +96,12 @@ fn cmd_check(file_path: &PathBuf, args: &[String]) -> anyhow::Result<()> {
 
     // Load rules from file or use defaults
     let rules = if let Some(pos) = args.iter().position(|a| a == "--rules") {
-        let rules_path = args.get(pos + 1).context("--rules requires a path argument")?;
+        let rules_path = args
+            .get(pos + 1)
+            .context("--rules requires a path argument")?;
         let rules_content = std::fs::read_to_string(rules_path)
             .with_context(|| format!("cannot read rules file '{}'", rules_path))?;
-        serde_yaml::from_str::<ComplianceRules>(&rules_content)
-            .context("invalid rules YAML")?
+        serde_yaml::from_str::<ComplianceRules>(&rules_content).context("invalid rules YAML")?
     } else {
         ComplianceRules::default()
     };
@@ -105,11 +111,7 @@ fn cmd_check(file_path: &PathBuf, args: &[String]) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn cmd_watch(
-    results_dir: &PathBuf,
-    outbox_dir: &PathBuf,
-    args: &[String],
-) -> anyhow::Result<()> {
+fn cmd_watch(results_dir: &Path, outbox_dir: &Path, args: &[String]) -> anyhow::Result<()> {
     let max_retries = args
         .iter()
         .position(|a| a == "--max-retries")

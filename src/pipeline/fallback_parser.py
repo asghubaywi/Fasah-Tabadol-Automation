@@ -146,7 +146,21 @@ def parse_csv(file_path: Path) -> dict[str, Any]:
         file_path.name,
     )
 
-    content_hash = _sha256_file(file_path)
+    # Hash the file up front, but never let a missing/unreadable file crash the
+    # parser — graceful degradation means returning an error result, not raising.
+    try:
+        content_hash = _sha256_file(file_path)
+    except OSError as exc:
+        log.error("Cannot read '%s': %s", file_path, exc)
+        return {
+            "total_records": 0,
+            "valid_records": 0,
+            "invalid_records": 0,
+            "records": [],
+            "errors": [f"File read error: {exc}"],
+            "content_hash": "",
+        }
+
     records: list[dict[str, Any]] = []
     all_errors: list[str] = []
     row_error_count = 0
@@ -204,7 +218,18 @@ def parse_json(file_path: Path) -> dict[str, Any]:
         file_path.name,
     )
 
-    content_hash = _sha256_file(file_path)
+    try:
+        content_hash = _sha256_file(file_path)
+    except OSError as exc:
+        log.error("Cannot read '%s': %s", file_path, exc)
+        return {
+            "total_records": 0,
+            "valid_records": 0,
+            "invalid_records": 0,
+            "records": [],
+            "errors": [f"File read error: {exc}"],
+            "content_hash": "",
+        }
 
     try:
         with open(file_path, "r", encoding="utf-8") as f:

@@ -12,7 +12,7 @@ All Gates (9–13) are preserved. All ENV-driven config is identical.
 
 Architecture:
   orchestrator  --[task JSON]--> browser_tasks/  --[this worker]--> browser_results/
-                                                                  \-> state/processed/
+                                                                  \\-> state/processed/
 """
 from __future__ import annotations
 
