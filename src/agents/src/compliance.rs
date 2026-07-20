@@ -248,10 +248,7 @@ impl ComplianceChecker {
     }
 
     /// Check all declarations and return aggregated results.
-    pub fn check_all(
-        records: &[DeclarationRecord],
-        rules: &ComplianceRules,
-    ) -> ComplianceResult {
+    pub fn check_all(records: &[DeclarationRecord], rules: &ComplianceRules) -> ComplianceResult {
         let verdicts: Vec<ComplianceVerdict> = records
             .iter()
             .map(|r| Self::check_declaration(r, rules))

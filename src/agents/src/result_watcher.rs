@@ -216,10 +216,20 @@ fn handle_found(
         .to_lowercase();
 
     let approval_keywords = ["approved", "مقبول", "موافق", "released", "cleared", "مفسوح"];
-    let hold_keywords = ["hold", "pending", "review", "معلق", "قيد المراجعة", "under review"];
+    let hold_keywords = [
+        "hold",
+        "pending",
+        "review",
+        "معلق",
+        "قيد المراجعة",
+        "under review",
+    ];
     let reject_keywords = ["rejected", "مرفوض", "denied", "refused"];
 
-    let new_status = if approval_keywords.iter().any(|kw| portal_status.contains(kw)) {
+    let new_status = if approval_keywords
+        .iter()
+        .any(|kw| portal_status.contains(kw))
+    {
         Some("approved")
     } else if reject_keywords.iter().any(|kw| portal_status.contains(kw)) {
         Some("rejected")
@@ -251,7 +261,10 @@ fn handle_found(
         let path = outbox_dir.join(&filename);
         std::fs::write(&path, serde_json::to_string_pretty(&command)?)?;
 
-        Ok((format!("status_updated_to_{}", status), Some(status.to_string())))
+        Ok((
+            format!("status_updated_to_{}", status),
+            Some(status.to_string()),
+        ))
     } else {
         Ok(("portal_status_unrecognized".to_string(), None))
     }

@@ -125,7 +125,7 @@ class ResilientAuditLogger(AuditLogger):
                     self._write_failures,
                 )
                 self._write_failures = 0
-        except OSError as exc:
+        except Exception as exc:  # noqa: BLE001 — audit must NEVER raise into the pipeline
             self._write_failures += 1
             prev_len = len(self._buffer)
             self._buffer.append(line)
@@ -160,5 +160,5 @@ class ResilientAuditLogger(AuditLogger):
                 while self._buffer:
                     fh.write(self._buffer.popleft())
             log.info("[ResilientAudit] Flushed %d buffered event(s) to disk.", count)
-        except OSError:
+        except Exception:  # noqa: BLE001 — flush must never raise; retry on next write
             pass  # leave events in buffer; will retry on next write

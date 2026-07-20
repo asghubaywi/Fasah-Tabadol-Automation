@@ -6,13 +6,15 @@ Implements the same priority-ordered rules as ``fasah-engine check`` and
 returns a ComplianceResult-compatible dict so the rest of the pipeline
 continues without the Rust binary.
 
-Priority order (mirrors compliance.rs):
-    1  Sanctioned country → reject_sanctioned  (risk 100)
-    2  Banned HS prefix   → reject             (risk 95)
-    3  Missing certs      → hold_pending_certs (risk 70)
-    4  High value         → escalate_high_value(risk 80)
-    5  Overweight         → mandate_inspection  (risk 60)
-    *  Otherwise          → approve             (risk 0)
+Priority order and risk scores mirror compliance.rs::check_declaration exactly
+(the Rust engine is authoritative; this is the degraded-mode fallback):
+    1  Sanctioned country → reject_sanctioned      (risk 100, early return)
+    2  Banned HS prefix   → reject                 (risk 100, early return)
+    3  Missing certs      → hold_pending_certs     (risk max(.,60))
+    4  High value         → escalate_high_value    (risk max(.,70); only if still approve)
+    5  Overweight         → mandate_inspection     (risk max(.,50); only if still approve)
+    6  Approve + reasons  → approve_with_conditions(risk max(.,20))
+    *  Otherwise          → approve                (risk 0)
 """
 from __future__ import annotations
 
@@ -73,86 +75,104 @@ def _check_record(record: dict[str, Any], rules: dict[str, Any]) -> dict[str, An
     Apply compliance rules to one record and return a verdict dict.
 
     تطبيق قواعد الامتثال على سجل واحد وإعادة حكم الامتثال.
+
+    This MUST stay behaviourally equivalent to the authoritative Rust engine
+    (``src/agents/src/compliance.rs::check_declaration``) — see Constitution P14
+    and the equivalence suite in ``tests/test_equivalence.py``. The Rust engine
+    is the source of truth; this fallback mirrors its accumulate-then-decide
+    logic, risk scores, certificate union, and priority ordering exactly.
+    Comparisons are case-sensitive to match Rust (the parser already normalises
+    origin to upper-case ISO-2).
     """
     decl_num = record.get("declaration_number", "UNKNOWN")
     hs_raw = str(record.get("hs_code", "")).strip()
     hs = hs_raw.replace(".", "")  # normalise 8471.30.00 → 847130
-    origin = str(record.get("origin_country", "")).strip().upper()
+    origin = str(record.get("origin_country", "")).strip()
     declared_value = float(record.get("declared_value_sar", 0) or 0)
     weight = float(record.get("weight_kg", 0) or 0)
-    certs = [c.strip().upper() for c in record.get("required_certificates", [])]
+    provided: set[str] = set(record.get("required_certificates", []) or [])
 
-    # ── Priority 1: Sanctioned country ───────────────────────────────────────
-    sanctioned = [c.strip().upper() for c in rules.get("sanctioned_countries", [])]
+    reasons: list[str] = []
+    missing_certs: list[str] = []
+    risk_score = 0
+    action = "approve"
+
+    # 1. Sanctioned country (highest priority) — mirrors compliance.rs step 1
+    sanctioned = set(rules.get("sanctioned_countries", []) or [])
     if origin in sanctioned:
+        reasons.append(f"origin country '{origin}' is under trade sanctions")
+        risk_score = 100
+        action = "reject_sanctioned"
+
+    # 2. Banned HS prefix — step 2
+    for banned in rules.get("banned_hs_prefixes", []) or []:
+        banned_clean = str(banned).replace(".", "")
+        if hs.startswith(banned_clean):
+            reasons.append(f"HS code '{hs_raw}' matches banned prefix '{banned}'")
+            risk_score = 100
+            action = "reject"
+
+    # Early return if already rejected (matches Rust's early return)
+    if action in ("reject", "reject_sanctioned"):
         return {
             "declaration_number": decl_num,
-            "action": "reject_sanctioned",
-            "risk_score": 100,
-            "reasons": [f"Origin country '{origin}' is sanctioned"],
+            "action": action,
+            "reasons": reasons,
+            "missing_certificates": missing_certs,
+            "risk_score": risk_score,
         }
 
-    # ── Priority 2: Banned HS prefix ─────────────────────────────────────────
-    for prefix in rules.get("banned_hs_prefixes", []):
-        if hs.startswith(str(prefix)):
-            return {
-                "declaration_number": decl_num,
-                "action": "reject",
-                "risk_score": 95,
-                "reasons": [f"HS code '{hs_raw}' matches banned prefix '{prefix}'"],
-            }
+    # 3. Certificate requirements — UNION of 2-digit and 4-digit prefixes (step 3)
+    cert_requirements: dict[str, list[str]] = rules.get("certificate_requirements", {}) or {}
+    required: set[str] = set()
+    hs_prefix_2 = hs[:2] if len(hs) >= 2 else hs
+    hs_prefix_4 = hs[:4] if len(hs) >= 4 else hs
+    if hs_prefix_2 in cert_requirements:
+        required.update(cert_requirements[hs_prefix_2])
+    if hs_prefix_4 in cert_requirements:
+        required.update(cert_requirements[hs_prefix_4])
 
-    # ── Priority 3: Missing certificates ─────────────────────────────────────
-    cert_requirements: dict[str, list[str]] = rules.get("certificate_requirements", {})
-    required: list[str] = []
-    # Check 4-digit heading first, then 2-digit chapter
-    for prefix_len in (4, 2):
-        prefix = hs[:prefix_len]
-        if prefix in cert_requirements:
-            required = [c.strip().upper() for c in cert_requirements[prefix]]
-            break
+    # BTreeSet ordering in Rust → iterate sorted for a deterministic missing list
+    for req in sorted(required):
+        if req not in provided:
+            missing_certs.append(req)
 
-    if required:
-        missing = [c for c in required if c not in certs]
-        if missing:
-            return {
-                "declaration_number": decl_num,
-                "action": "hold_pending_certificates",
-                "risk_score": 70,
-                "reasons": [f"Missing required certificates: {', '.join(missing)}"],
-            }
+    if missing_certs:
+        reasons.append(f"missing certificates: {', '.join(missing_certs)}")
+        risk_score = max(risk_score, 60)
+        action = "hold_pending_certificates"
 
-    # ── Priority 4: High value ────────────────────────────────────────────────
+    # 4. High-value check — step 4 (only overrides a still-Approve action)
     threshold = float(rules.get("high_value_threshold_sar", 500_000.0))
     if declared_value > threshold:
-        return {
-            "declaration_number": decl_num,
-            "action": "escalate_high_value",
-            "risk_score": 80,
-            "reasons": [
-                f"Declared value {declared_value:,.2f} SAR exceeds threshold "
-                f"{threshold:,.2f} SAR"
-            ],
-        }
+        reasons.append(
+            f"declared value {declared_value} SAR exceeds threshold {threshold} SAR"
+        )
+        risk_score = max(risk_score, 70)
+        if action == "approve":
+            action = "escalate_high_value"
 
-    # ── Priority 5: Overweight ────────────────────────────────────────────────
+    # 5. Overweight check — step 5 (only overrides a still-Approve action)
     max_weight = float(rules.get("max_weight_kg", 50_000.0))
     if weight > max_weight:
-        return {
-            "declaration_number": decl_num,
-            "action": "mandate_inspection",
-            "risk_score": 60,
-            "reasons": [
-                f"Weight {weight:,.2f} kg exceeds limit {max_weight:,.2f} kg"
-            ],
-        }
+        reasons.append(
+            f"weight {weight} kg exceeds inspection threshold {max_weight} kg"
+        )
+        risk_score = max(risk_score, 50)
+        if action == "approve":
+            action = "mandate_inspection"
 
-    # ── All clear ─────────────────────────────────────────────────────────────
+    # 6. Minor notes → conditional approval — step 6
+    if action == "approve" and reasons:
+        action = "approve_with_conditions"
+        risk_score = max(risk_score, 20)
+
     return {
         "declaration_number": decl_num,
-        "action": "approve",
-        "risk_score": 0,
-        "reasons": [],
+        "action": action,
+        "reasons": reasons,
+        "missing_certificates": missing_certs,
+        "risk_score": risk_score,
     }
 
 
@@ -181,6 +201,9 @@ def check_compliance(
     verdicts: list[dict[str, Any]] = []
     counts = {"approved": 0, "held": 0, "rejected": 0, "escalated": 0}
 
+    # Count each verdict exactly once, mirroring compliance.rs::check_all so the
+    # aggregate totals match the Rust engine (approved+held+escalated+rejected
+    # == total_checked). Escalate and mandate-inspection both count as escalated.
     for record in records:
         verdict = _check_record(record, rules)
         verdicts.append(verdict)
@@ -188,13 +211,12 @@ def check_compliance(
 
         if action in ("approve", "approve_with_conditions"):
             counts["approved"] += 1
-        elif action in ("hold_pending_certificates", "mandate_inspection"):
+        elif action == "hold_pending_certificates":
             counts["held"] += 1
+        elif action in ("escalate_high_value", "mandate_inspection"):
+            counts["escalated"] += 1
         elif action in ("reject", "reject_sanctioned"):
             counts["rejected"] += 1
-        elif action == "escalate_high_value":
-            counts["escalated"] += 1
-            counts["held"] += 1  # escalated also counts as held
 
     return {
         "total_checked": len(records),

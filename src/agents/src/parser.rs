@@ -212,8 +212,8 @@ impl DeclarationParser {
 
     /// Parse JSON content — expects array of DeclarationRecord.
     pub fn parse_json(content: &str) -> Result<ParseResult, String> {
-        let records: Vec<DeclarationRecord> = serde_json::from_str(content)
-            .map_err(|e| format!("JSON parse error: {}", e))?;
+        let records: Vec<DeclarationRecord> =
+            serde_json::from_str(content).map_err(|e| format!("JSON parse error: {}", e))?;
 
         let mut hasher = Sha256::new();
         hasher.update(content.as_bytes());
